@@ -11,6 +11,7 @@ interface DashboardStats {
   totalExpenses: number
   totalBudget: number
   budgetUsed: number
+  monthlyExpenses: number
   expensesThisMonth: number
   budgetsExceeded: number
 }
@@ -20,6 +21,7 @@ export default function DashboardOverview() {
     totalExpenses: 0,
     totalBudget: 0,
     budgetUsed: 0,
+    monthlyExpenses: 0,
     expensesThisMonth: 0,
     budgetsExceeded: 0,
   })
@@ -82,14 +84,22 @@ export default function DashboardOverview() {
         `)
         .eq("user_id", user.id)
 
-      // Calculate current month expenses
-      const currentMonth = new Date().toISOString().slice(0, 7)
+      // Get current month start and end dates
+      const now = new Date()
+      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0]
+      const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0]
+
+      console.log("Date range:", currentMonthStart, "to", currentMonthEnd)
+
+      // Calculate current month expenses with better date handling
       const { data: monthlyExpenses } = await supabase
         .from("expenses")
-        .select("amount")
+        .select("amount, expense_date")
         .eq("user_id", user.id)
-        .gte("expense_date", `${currentMonth}-01`)
-        .lt("expense_date", `${currentMonth}-32`)
+        .gte("expense_date", currentMonthStart)
+        .lte("expense_date", currentMonthEnd)
+
+      console.log("Monthly expenses data:", monthlyExpenses)
 
       // Calculate total expenses (all time)
       const totalExpenses = allExpenses?.reduce((sum, exp) => sum + Number(exp.amount), 0) || 0
@@ -97,31 +107,68 @@ export default function DashboardOverview() {
       // Calculate monthly expenses for budget comparison
       const monthlyExpensesTotal = monthlyExpenses?.reduce((sum, exp) => sum + Number(exp.amount), 0) || 0
 
-      const totalBudget = budgetsData?.reduce((sum, budget) => sum + Number(budget.amount), 0) || 0
-      const budgetUsed = totalBudget > 0 ? (monthlyExpensesTotal / totalBudget) * 100 : 0
+      console.log("Monthly expenses total:", monthlyExpensesTotal)
 
-      // Count exceeded budgets
+      // Calculate total budget (sum of all active budgets)
+      const totalBudget = budgetsData?.reduce((sum, budget) => sum + Number(budget.amount), 0) || 0
+
+      console.log("Total budget:", totalBudget)
+
+      // Calculate budget used percentage
+      let budgetUsed = 0
+      if (totalBudget > 0) {
+        budgetUsed = (monthlyExpensesTotal / totalBudget) * 100
+      }
+
+      console.log("Budget used percentage:", budgetUsed)
+
+      // Count exceeded budgets - Fixed logic
       let budgetsExceeded = 0
-      if (budgetsData) {
+      if (budgetsData && budgetsData.length > 0) {
+        console.log("Checking budgets for exceeded amounts...")
+
         for (const budget of budgetsData) {
-          const { data: budgetExpenses } = await supabase
+          console.log(`Checking budget: ${budget.name} (${budget.category?.name}) - Amount: ${budget.amount}`)
+
+          // Get the budget period dates, default to current month if not specified
+          const budgetStart = budget.start_date || currentMonthStart
+          const budgetEnd = budget.end_date || currentMonthEnd
+
+          console.log(`Budget period: ${budgetStart} to ${budgetEnd}`)
+
+          // Get expenses for this budget's category within the budget period
+          const { data: budgetExpenses, error } = await supabase
             .from("expenses")
-            .select("amount")
-            .eq("budget_id", budget.id)
-            .gte("expense_date", budget.start_date)
-            .lte("expense_date", budget.end_date)
+            .select("amount, description, expense_date")
+            .eq("user_id", user.id)
+            .eq("category_id", budget.category_id)
+            .gte("expense_date", budgetStart)
+            .lte("expense_date", budgetEnd)
+
+          if (error) {
+            console.error("Error fetching budget expenses:", error)
+            continue
+          }
+
+          console.log(`Expenses for budget ${budget.name}:`, budgetExpenses)
 
           const spent = budgetExpenses?.reduce((sum, exp) => sum + Number(exp.amount), 0) || 0
+          console.log(`Total spent: ${spent}, Budget amount: ${budget.amount}`)
+
           if (spent > Number(budget.amount)) {
             budgetsExceeded++
+            console.log(`Budget ${budget.name} is exceeded! Spent: ${spent}, Budget: ${budget.amount}`)
           }
         }
       }
 
+      console.log("Total budgets exceeded:", budgetsExceeded)
+
       setStats({
-        totalExpenses, // This is now the total of ALL expenses
+        totalExpenses,
         totalBudget,
         budgetUsed,
+        monthlyExpenses: monthlyExpensesTotal,
         expensesThisMonth: monthlyExpenses?.length || 0,
         budgetsExceeded,
       })
@@ -134,6 +181,41 @@ export default function DashboardOverview() {
       setLoading(false)
     }
   }
+
+  // Helper function to get budget status color and message
+  const getBudgetStatus = (percentage: number) => {
+    if (percentage <= 50) {
+      return {
+        color: "text-green-600",
+        bgColor: "bg-green-100",
+        message: "On track",
+        progressColor: "bg-green-500",
+      }
+    } else if (percentage <= 80) {
+      return {
+        color: "text-yellow-600",
+        bgColor: "bg-yellow-100",
+        message: "Caution",
+        progressColor: "bg-yellow-500",
+      }
+    } else if (percentage <= 100) {
+      return {
+        color: "text-orange-600",
+        bgColor: "bg-orange-100",
+        message: "Near limit",
+        progressColor: "bg-orange-500",
+      }
+    } else {
+      return {
+        color: "text-red-600",
+        bgColor: "bg-red-100",
+        message: "Over budget",
+        progressColor: "bg-red-500",
+      }
+    }
+  }
+
+  const budgetStatus = getBudgetStatus(stats.budgetUsed)
 
   if (loading) {
     return (
@@ -183,22 +265,52 @@ export default function DashboardOverview() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Budget Used</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center space-x-2">
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <span
+                className={`text-xs px-2 py-1 rounded-full ${budgetStatus.bgColor} ${budgetStatus.color} font-medium`}
+              >
+                {budgetStatus.message}
+              </span>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.budgetUsed.toFixed(1)}%</div>
-            <Progress value={stats.budgetUsed} className="mt-2" />
+            <div className="space-y-3">
+              <div className="flex items-baseline justify-between">
+                <div className="text-2xl font-bold">{stats.budgetUsed.toFixed(1)}%</div>
+                <div className="text-sm text-muted-foreground">
+                  {formatCurrency(stats.monthlyExpenses)} / {formatCurrency(stats.totalBudget)}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Progress value={Math.min(stats.budgetUsed, 100)} className="h-2" />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Spent this month</span>
+                  <span>
+                    {stats.totalBudget - stats.monthlyExpenses > 0
+                      ? `${formatCurrency(stats.totalBudget - stats.monthlyExpenses)} remaining`
+                      : `${formatCurrency(stats.monthlyExpenses - stats.totalBudget)} over budget`}
+                  </span>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Budget Alerts</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            <AlertTriangle
+              className={`h-4 w-4 ${stats.budgetsExceeded > 0 ? "text-red-500" : "text-muted-foreground"}`}
+            />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.budgetsExceeded}</div>
-            <p className="text-xs text-muted-foreground">Budgets exceeded</p>
+            <div className={`text-2xl font-bold ${stats.budgetsExceeded > 0 ? "text-red-600" : ""}`}>
+              {stats.budgetsExceeded}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {stats.budgetsExceeded === 1 ? "Budget exceeded" : "Budgets exceeded"}
+            </p>
           </CardContent>
         </Card>
       </div>
