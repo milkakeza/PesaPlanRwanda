@@ -19,7 +19,21 @@ export default function DashboardLayout({
 
   useEffect(() => {
     checkAuth()
-  }, [])
+
+    // Listen for auth state changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT" || !session) {
+        setAuthenticated(false)
+        router.push("/")
+      } else if (event === "SIGNED_IN" || session) {
+        setAuthenticated(true)
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [router])
 
   const checkAuth = async () => {
     try {
@@ -32,6 +46,7 @@ export default function DashboardLayout({
         router.push("/")
       }
     } catch (error) {
+      console.error("Auth check error:", error)
       router.push("/")
     } finally {
       setLoading(false)
@@ -41,7 +56,10 @@ export default function DashboardLayout({
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <p className="text-sm text-gray-600">Loading dashboard...</p>
+        </div>
       </div>
     )
   }
