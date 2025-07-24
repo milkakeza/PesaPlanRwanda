@@ -14,6 +14,13 @@ interface DashboardStats {
   monthlyExpenses: number
   expensesThisMonth: number
   budgetsExceeded: number
+  exceededBudgets: Array<{
+    name: string
+    categoryName: string
+    spent: number
+    budgetAmount: number
+    overAmount: number
+  }>
 }
 
 export default function DashboardOverview() {
@@ -24,6 +31,7 @@ export default function DashboardOverview() {
     monthlyExpenses: 0,
     expensesThisMonth: 0,
     budgetsExceeded: 0,
+    exceededBudgets: [],
   })
   const [recentExpenses, setRecentExpenses] = useState<Expense[]>([])
   const [budgets, setBudgets] = useState<Budget[]>([])
@@ -122,8 +130,16 @@ export default function DashboardOverview() {
 
       console.log("Budget used percentage:", budgetUsed)
 
-      // Count exceeded budgets - Fixed logic
+      // Count exceeded budgets and track details
       let budgetsExceeded = 0
+      const exceededBudgets: Array<{
+        name: string
+        categoryName: string
+        spent: number
+        budgetAmount: number
+        overAmount: number
+      }> = []
+
       if (budgetsData && budgetsData.length > 0) {
         console.log("Checking budgets for exceeded amounts...")
 
@@ -157,12 +173,21 @@ export default function DashboardOverview() {
 
           if (spent > Number(budget.amount)) {
             budgetsExceeded++
+            const overAmount = spent - Number(budget.amount)
+            exceededBudgets.push({
+              name: budget.name || "Unnamed Budget",
+              categoryName: budget.category?.name || "Unknown Category",
+              spent,
+              budgetAmount: Number(budget.amount),
+              overAmount,
+            })
             console.log(`Budget ${budget.name} is exceeded! Spent: ${spent}, Budget: ${budget.amount}`)
           }
         }
       }
 
       console.log("Total budgets exceeded:", budgetsExceeded)
+      console.log("Exceeded budgets details:", exceededBudgets)
 
       setStats({
         totalExpenses,
@@ -171,6 +196,7 @@ export default function DashboardOverview() {
         monthlyExpenses: monthlyExpensesTotal,
         expensesThisMonth: monthlyExpenses?.length || 0,
         budgetsExceeded,
+        exceededBudgets,
       })
 
       setRecentExpenses(expenses || [])
@@ -305,12 +331,23 @@ export default function DashboardOverview() {
             />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${stats.budgetsExceeded > 0 ? "text-red-600" : ""}`}>
-              {stats.budgetsExceeded}
+            <div className="space-y-2">
+              <div className={`text-2xl font-bold ${stats.budgetsExceeded > 0 ? "text-red-600" : ""}`}>
+                {stats.budgetsExceeded}
+              </div>
+              {stats.budgetsExceeded > 0 ? (
+                <div className="space-y-1">
+                  {stats.exceededBudgets.map((budget, index) => (
+                    <div key={index} className="text-xs">
+                      <div className="font-medium text-red-600">{budget.categoryName}</div>
+                      <div className="text-muted-foreground">{formatCurrency(budget.overAmount)} over budget</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">All budgets on track</p>
+              )}
             </div>
-            <p className="text-xs text-muted-foreground">
-              {stats.budgetsExceeded === 1 ? "Budget exceeded" : "Budgets exceeded"}
-            </p>
           </CardContent>
         </Card>
       </div>
