@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
-import { Home, CreditCard, Target, BarChart3, Settings, Menu, LogOut, User } from "lucide-react"
+import { Home, CreditCard, Target, BarChart3, Menu, LogOut, User } from "lucide-react" // Removed Settings icon import
 import { signOut } from "@/lib/auth"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
@@ -16,8 +16,8 @@ const navigation = [
   { name: "Expenses", href: "/expenses", icon: CreditCard },
   { name: "Budgets", href: "/budgets", icon: Target },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
-  { name: "Profile", href: "/profile", icon: User },
-  { name: "Settings", href: "/settings", icon: Settings },
+  { name: "Profile", href: "/profile", icon: User }, // Profile link remains
+  // { name: "Settings", href: "/settings", icon: Settings }, // Removed Settings link
 ]
 
 export default function Sidebar() {

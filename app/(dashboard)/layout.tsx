@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation" // Import usePathname
 import { supabase } from "@/lib/supabase"
 import { Loader2 } from "lucide-react"
 import Sidebar from "@/components/layout/sidebar"
@@ -26,6 +26,7 @@ export default function DashboardLayout({
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<any>(null)
   const router = useRouter()
+  const pathname = usePathname() // Get current pathname
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -64,6 +65,16 @@ export default function DashboardLayout({
     return () => subscription.unsubscribe()
   }, [router])
 
+  // Function to get the current page name for breadcrumbs
+  const getPageName = (path: string) => {
+    const parts = path.split("/").filter(Boolean)
+    if (parts.length === 0 || parts[parts.length - 1] === "dashboard") {
+      return "Dashboard"
+    }
+    // Capitalize the last part of the path
+    return parts[parts.length - 1].charAt(0).toUpperCase() + parts[parts.length - 1].slice(1)
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -75,6 +86,8 @@ export default function DashboardLayout({
   if (!user) {
     return null
   }
+
+  const currentPageName = getPageName(pathname)
 
   return (
     <SidebarProvider>
@@ -90,7 +103,7 @@ export default function DashboardLayout({
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>
-                <BreadcrumbPage>Dashboard</BreadcrumbPage>
+                <BreadcrumbPage>{currentPageName}</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
