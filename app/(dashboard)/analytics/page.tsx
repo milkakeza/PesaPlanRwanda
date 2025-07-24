@@ -1,23 +1,22 @@
 "use client"
 
-import type React from "react"
-
-import { useEffect, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
+import { ChartTooltip } from "@/components/ui/chart"
+import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, TrendingUp, Calendar, Target, DollarSign } from "lucide-react"
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts"
+import { Loader2 } from "lucide-react"
 
 interface CategorySpending {
   id: string
   name: string
   color: string
   icon: string
-  amount: number
+  total: number
   percentage: number
   transactionCount: number
 }
@@ -25,41 +24,55 @@ interface CategorySpending {
 interface SpendingStats {
   totalSpending: number
   averageDaily: number
-  mostFrequentCategory: string
+  averageMonthly: number
+  mostFrequentCategory: {
+    name: string
+    count: number
+  }
   largestExpense: {
-    amount: number
     description: string
-    category: string
+    amount: number
   }
 }
 
 export default function AnalyticsPage() {
-  const [loading, setLoading] = useState(true)
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date()
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
   })
   const [categorySpending, setCategorySpending] = useState<CategorySpending[]>([])
-  const [stats, setStats] = useState<SpendingStats>({
-    totalSpending: 0,
-    averageDaily: 0,
-    mostFrequentCategory: "",
-    largestExpense: { amount: 0, description: "", category: "" },
-  })
+  const [stats, setStats] = useState<SpendingStats | null>(null)
+  const [loading, setLoading] = useState(true)
   const { toast } = useToast()
 
-  useEffect(() => {
-    fetchAnalyticsData()
-  }, [selectedMonth])
+  const months = [
+    { value: "2025-01", label: "January 2025" },
+    { value: "2025-02", label: "February 2025" },
+    { value: "2025-03", label: "March 2025" },
+    { value: "2025-04", label: "April 2025" },
+    { value: "2025-05", label: "May 2025" },
+    { value: "2025-06", label: "June 2025" },
+    { value: "2025-07", label: "July 2025" },
+    { value: "2025-08", label: "August 2025" },
+    { value: "2025-09", label: "September 2025" },
+    { value: "2025-10", label: "October 2025" },
+    { value: "2025-11", label: "November 2025" },
+    { value: "2025-12", label: "December 2025" },
+  ]
 
-  const fetchAnalyticsData = async () => {
-    setLoading(true)
+  const fetchAnalytics = async () => {
     try {
+      setLoading(true)
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) return
+
       const [year, month] = selectedMonth.split("-")
       const startDate = `${year}-${month}-01`
       const endDate = new Date(Number.parseInt(year), Number.parseInt(month), 0).toISOString().split("T")[0]
 
-      // Fetch expenses with categories for the selected month
+      // Fetch expenses for the selected month with category details
       const { data: expenses, error } = await supabase
         .from("expenses")
         .select(`
@@ -74,9 +87,9 @@ export default function AnalyticsPage() {
             icon
           )
         `)
+        .eq("user_id", user.id)
         .gte("expense_date", startDate)
         .lte("expense_date", endDate)
-        .order("expense_date", { ascending: false })
 
       if (error) throw error
 
@@ -85,82 +98,92 @@ export default function AnalyticsPage() {
         setStats({
           totalSpending: 0,
           averageDaily: 0,
-          mostFrequentCategory: "No expenses",
-          largestExpense: { amount: 0, description: "No expenses", category: "" },
+          averageMonthly: 0,
+          mostFrequentCategory: { name: "None", count: 0 },
+          largestExpense: { description: "None", amount: 0 },
         })
         return
       }
 
       // Calculate category spending
-      const categoryMap = new Map<string, CategorySpending>()
+      const categoryMap = new Map<
+        string,
+        {
+          id: string
+          name: string
+          color: string
+          icon: string
+          total: number
+          count: number
+        }
+      >()
+
       let totalSpending = 0
-      let largestExpense = { amount: 0, description: "", category: "" }
+      let largestExpense = { description: "", amount: 0 }
 
       expenses.forEach((expense) => {
-        const category = expense.categories
-        const amount = Number.parseFloat(expense.amount.toString())
-        totalSpending += amount
+        totalSpending += expense.amount
 
-        // Track largest expense
-        if (amount > largestExpense.amount) {
+        if (expense.amount > largestExpense.amount) {
           largestExpense = {
-            amount,
-            description: expense.description || "No description",
-            category: category?.name || "Uncategorized",
+            description: expense.description,
+            amount: expense.amount,
           }
         }
 
-        if (category) {
-          const categoryId = category.id
+        if (expense.categories) {
+          const categoryId = expense.categories.id
           if (categoryMap.has(categoryId)) {
             const existing = categoryMap.get(categoryId)!
-            existing.amount += amount
-            existing.transactionCount += 1
+            existing.total += expense.amount
+            existing.count += 1
           } else {
             categoryMap.set(categoryId, {
-              id: categoryId,
-              name: category.name,
-              color: category.color,
-              icon: category.icon,
-              amount,
-              percentage: 0,
-              transactionCount: 1,
+              id: expense.categories.id,
+              name: expense.categories.name,
+              color: expense.categories.color,
+              icon: expense.categories.icon,
+              total: expense.amount,
+              count: 1,
             })
           }
         }
       })
 
-      // Calculate percentages and sort by amount
-      const categorySpendingArray = Array.from(categoryMap.values())
+      // Convert to array and calculate percentages
+      const categorySpendingData: CategorySpending[] = Array.from(categoryMap.values())
         .map((category) => ({
           ...category,
-          percentage: totalSpending > 0 ? (category.amount / totalSpending) * 100 : 0,
+          percentage: totalSpending > 0 ? (category.total / totalSpending) * 100 : 0,
+          transactionCount: category.count,
         }))
-        .sort((a, b) => b.amount - a.amount)
+        .sort((a, b) => b.total - a.total)
 
       // Find most frequent category
-      const mostFrequentCategory =
-        categorySpendingArray.reduce(
-          (prev, current) => (current.transactionCount > prev.transactionCount ? current : prev),
-          categorySpendingArray[0],
-        )?.name || "No expenses"
+      const mostFrequentCategory = categorySpendingData.reduce(
+        (max, category) =>
+          category.transactionCount > max.count ? { name: category.name, count: category.transactionCount } : max,
+        { name: "None", count: 0 },
+      )
 
-      // Calculate average daily spending
+      // Calculate averages
       const daysInMonth = new Date(Number.parseInt(year), Number.parseInt(month), 0).getDate()
       const averageDaily = totalSpending / daysInMonth
+      const averageMonthly = totalSpending
 
-      setCategorySpending(categorySpendingArray)
+      setCategorySpending(categorySpendingData)
       setStats({
         totalSpending,
         averageDaily,
+        averageMonthly,
         mostFrequentCategory,
         largestExpense,
       })
-    } catch (error: any) {
-      console.error("Error fetching analytics data:", error)
+    } catch (error) {
+      console.error("Error fetching analytics:", error)
       toast({
-        title: "Error fetching analytics data",
-        description: error.message,
+        title: "Error",
+        description: "Failed to fetch analytics data",
         variant: "destructive",
       })
     } finally {
@@ -168,65 +191,32 @@ export default function AnalyticsPage() {
     }
   }
 
+  useEffect(() => {
+    fetchAnalytics()
+  }, [selectedMonth])
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-RW", {
       style: "currency",
       currency: "RWF",
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(amount)
+    })
+      .format(amount)
+      .replace("RWF", "")
+      .trim()
   }
 
-  const formatNumber = (num: number) => {
-    return new Intl.NumberFormat("en-RW").format(num)
-  }
-
-  // Generate month options for the current year
-  const generateMonthOptions = () => {
-    const currentYear = new Date().getFullYear()
-    const months = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
-    ]
-
-    return months.map((month, index) => ({
-      value: `${currentYear}-${String(index + 1).padStart(2, "0")}`,
-      label: `${month} ${currentYear}`,
-    }))
-  }
-
-  // Custom tooltip for the pie chart
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload
-      return (
-        <div className="bg-white p-3 border rounded-lg shadow-lg">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: data.color }} />
-            <span className="font-medium">{data.name}</span>
-          </div>
-          <p className="text-sm text-gray-600 mt-1">
-            {formatCurrency(data.amount)} ({data.percentage.toFixed(1)}%)
-          </p>
-        </div>
-      )
-    }
-    return null
-  }
+  // Prepare chart data
+  const chartData = categorySpending.map((category) => ({
+    name: category.name,
+    value: category.total,
+    fill: category.color,
+  }))
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
+      <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     )
@@ -237,146 +227,166 @@ export default function AnalyticsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
-          <p className="text-muted-foreground">Analyze your spending patterns and financial insights</p>
+          <p className="text-muted-foreground">Insights and trends about your spending</p>
         </div>
         <Select value={selectedMonth} onValueChange={setSelectedMonth}>
           <SelectTrigger className="w-48">
             <SelectValue placeholder="Select month" />
           </SelectTrigger>
           <SelectContent>
-            {generateMonthOptions().map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
+            {months.map((month) => (
+              <SelectItem key={month.value} value={month.value}>
+                {month.label}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Spending</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatNumber(stats.totalSpending)}</div>
-            <p className="text-xs text-muted-foreground">RWF for selected month</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Average Daily</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatNumber(stats.averageDaily)}</div>
-            <p className="text-xs text-muted-foreground">RWF per day average</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Most Frequent</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold truncate">{stats.mostFrequentCategory}</div>
-            <p className="text-xs text-muted-foreground">Category with most transactions</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Largest Expense</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatNumber(stats.largestExpense.amount)}</div>
-            <p className="text-xs text-muted-foreground truncate">{stats.largestExpense.description}</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {categorySpending.length === 0 ? (
-        <Card>
-          <CardContent className="flex items-center justify-center h-96">
-            <div className="text-center">
-              <p className="text-lg font-medium text-muted-foreground">No expenses found</p>
-              <p className="text-sm text-muted-foreground">No expenses recorded for the selected month</p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
+      {stats && (
         <div className="grid gap-6 md:grid-cols-2">
           {/* Donut Chart */}
           <Card>
             <CardHeader>
               <CardTitle>Spending Breakdown</CardTitle>
-              <CardDescription>Total spending by category for the selected month</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={categorySpending}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={120}
-                      paddingAngle={2}
-                      dataKey="amount"
-                    >
-                      {categorySpending.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip content={<CustomTooltip />} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="text-center mt-4">
-                <p className="text-2xl font-bold">{formatNumber(stats.totalSpending)}</p>
-                <p className="text-sm text-muted-foreground">Total Spending (RWF)</p>
-              </div>
+              {categorySpending.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground">Total Spending</p>
+                    <p className="text-2xl font-bold">{formatCurrency(stats.totalSpending)}</p>
+                  </div>
+                  <div className="h-[250px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={chartData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={40}
+                          outerRadius={80}
+                          paddingAngle={2}
+                          dataKey="value"
+                          nameKey="name"
+                        >
+                          {chartData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.fill} />
+                          ))}
+                        </Pie>
+                        <ChartTooltip
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              const data = payload[0].payload
+                              return (
+                                <div className="rounded-lg border bg-background p-2 shadow-sm">
+                                  <div className="space-y-1">
+                                    <p className="font-medium">{data.name}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                      {formatCurrency(data.value)} (
+                                      {((data.value / stats.totalSpending) * 100).toFixed(1)}%)
+                                    </p>
+                                  </div>
+                                </div>
+                              )
+                            }
+                            return null
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">No expenses found for this month</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Category List */}
+          {/* Categories List */}
           <Card>
             <CardHeader>
-              <CardTitle>Categories</CardTitle>
-              <CardDescription>Detailed breakdown of spending by category</CardDescription>
+              <div className="flex items-center justify-between">
+                <CardTitle>Categories</CardTitle>
+                <div className="text-right">
+                  <p className="text-sm text-muted-foreground">Total Spending</p>
+                  <p className="text-lg font-bold">{formatCurrency(stats.totalSpending)}</p>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4 max-h-80 overflow-y-auto">
-                {categorySpending.map((category) => (
-                  <div key={category.id} className="space-y-2">
-                    <div className="flex items-center justify-between">
+              {categorySpending.length > 0 ? (
+                <div className="space-y-4 max-h-[300px] overflow-y-auto">
+                  {categorySpending.map((category) => (
+                    <div key={category.id} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: category.color }} />
+                          <span className="font-medium text-sm">{category.name}</span>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-sm">{formatCurrency(category.total)}</p>
+                        </div>
+                      </div>
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: category.color }} />
-                        <span className="font-medium text-sm">{category.name}</span>
+                        <Progress value={category.percentage} className="flex-1 h-2" />
                         <Badge variant="secondary" className="text-xs">
                           {category.percentage.toFixed(0)}%
                         </Badge>
                       </div>
-                      <span className="font-bold text-sm">{formatNumber(category.amount)}</span>
                     </div>
-                    <Progress
-                      value={category.percentage}
-                      className="h-2"
-                      style={
-                        {
-                          "--progress-background": category.color,
-                        } as React.CSSProperties
-                      }
-                    />
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No categories found for this month</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Statistics Cards */}
+      {stats && (
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Average Monthly Spending</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">{formatCurrency(stats.averageMonthly)}</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Average Daily Spending</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">{formatCurrency(stats.averageDaily)}</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Most Frequent Category</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-lg font-bold">{stats.mostFrequentCategory.name}</p>
+              <p className="text-sm text-muted-foreground">{stats.mostFrequentCategory.count} transactions</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Largest Expense</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-lg font-bold">{stats.largestExpense.description || "None"}</p>
+              <p className="text-sm text-muted-foreground">{formatCurrency(stats.largestExpense.amount)}</p>
             </CardContent>
           </Card>
         </div>

@@ -59,7 +59,10 @@ export default function DashboardOverview() {
       } = await supabase.auth.getUser()
       if (!user) return
 
-      // Fetch recent expenses
+      // Fetch ALL expenses for total calculation
+      const { data: allExpenses } = await supabase.from("expenses").select("amount").eq("user_id", user.id)
+
+      // Fetch recent expenses for display
       const { data: expenses } = await supabase
         .from("expenses")
         .select(`
@@ -88,10 +91,14 @@ export default function DashboardOverview() {
         .gte("expense_date", `${currentMonth}-01`)
         .lt("expense_date", `${currentMonth}-32`)
 
-      // Calculate stats
-      const totalExpenses = monthlyExpenses?.reduce((sum, exp) => sum + Number(exp.amount), 0) || 0
+      // Calculate total expenses (all time)
+      const totalExpenses = allExpenses?.reduce((sum, exp) => sum + Number(exp.amount), 0) || 0
+
+      // Calculate monthly expenses for budget comparison
+      const monthlyExpensesTotal = monthlyExpenses?.reduce((sum, exp) => sum + Number(exp.amount), 0) || 0
+
       const totalBudget = budgetsData?.reduce((sum, budget) => sum + Number(budget.amount), 0) || 0
-      const budgetUsed = totalBudget > 0 ? (totalExpenses / totalBudget) * 100 : 0
+      const budgetUsed = totalBudget > 0 ? (monthlyExpensesTotal / totalBudget) * 100 : 0
 
       // Count exceeded budgets
       let budgetsExceeded = 0
@@ -112,7 +119,7 @@ export default function DashboardOverview() {
       }
 
       setStats({
-        totalExpenses,
+        totalExpenses, // This is now the total of ALL expenses
         totalBudget,
         budgetUsed,
         expensesThisMonth: monthlyExpenses?.length || 0,
@@ -158,7 +165,7 @@ export default function DashboardOverview() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(stats.totalExpenses)}</div>
-            <p className="text-xs text-muted-foreground">This month</p>
+            <p className="text-xs text-muted-foreground">All time total</p>
           </CardContent>
         </Card>
 

@@ -4,9 +4,19 @@ import type React from "react"
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import Sidebar from "@/components/layout/sidebar"
 import { supabase } from "@/lib/supabase"
 import { Loader2 } from "lucide-react"
+import Sidebar from "@/components/layout/sidebar"
+import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
+import { Separator } from "@/components/ui/separator"
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
 
 export default function DashboardLayout({
   children,
@@ -14,71 +24,79 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const [loading, setLoading] = useState(true)
-  const [authenticated, setAuthenticated] = useState(false)
+  const [user, setUser] = useState<any>(null)
   const router = useRouter()
 
   useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+
+        if (!user) {
+          router.push("/")
+          return
+        }
+
+        setUser(user)
+      } catch (error) {
+        console.error("Error checking auth:", error)
+        router.push("/")
+      } finally {
+        setLoading(false)
+      }
+    }
+
     checkAuth()
 
-    // Listen for auth state changes
+    // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_OUT" || !session) {
-        setAuthenticated(false)
         router.push("/")
-      } else if (event === "SIGNED_IN" || session) {
-        setAuthenticated(true)
+      } else if (event === "SIGNED_IN" && session) {
+        setUser(session.user)
       }
     })
 
     return () => subscription.unsubscribe()
   }, [router])
 
-  const checkAuth = async () => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (user) {
-        setAuthenticated(true)
-      } else {
-        router.push("/")
-      }
-    } catch (error) {
-      console.error("Auth check error:", error)
-      router.push("/")
-    } finally {
-      setLoading(false)
-    }
-  }
-
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin" />
-          <p className="text-sm text-gray-600">Loading dashboard...</p>
-        </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     )
   }
 
-  if (!authenticated) {
+  if (!user) {
     return null
   }
 
   return (
-    <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
+    <SidebarProvider>
       <Sidebar />
-      <div className="flex flex-col">
-        <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
-          <div className="w-full flex-1">
-            <h1 className="text-lg font-semibold md:text-2xl">PesaPlan</h1>
-          </div>
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem className="hidden md:block">
+                <BreadcrumbLink href="/dashboard">PesaPlan</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Dashboard</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
         </header>
-        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">{children}</main>
-      </div>
-    </div>
+        <div className="flex flex-1 flex-col gap-4 p-4">{children}</div>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }

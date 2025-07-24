@@ -2,63 +2,65 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import AuthForm from "@/components/auth/auth-form"
 import { supabase } from "@/lib/supabase"
+import { AuthForm } from "@/components/auth/auth-form"
 import { Loader2 } from "lucide-react"
 
 export default function HomePage() {
   const [loading, setLoading] = useState(true)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
-    checkAuthStatus()
-  }, [])
+    const checkAuth = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
 
-  const checkAuthStatus = async () => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (user) {
-        setIsAuthenticated(true)
-        router.push("/dashboard")
-      } else {
-        setIsAuthenticated(false)
+        if (session) {
+          router.push("/dashboard")
+        } else {
+          setLoading(false)
+        }
+      } catch (error) {
+        console.error("Error checking auth:", error)
+        setLoading(false)
       }
-    } catch (error) {
-      console.error("Auth check error:", error)
-      setIsAuthenticated(false)
-    } finally {
-      setLoading(false)
     }
-  }
 
-  // Show loading spinner while checking authentication
+    checkAuth()
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session) {
+        router.push("/dashboard")
+      } else if (event === "SIGNED_OUT") {
+        setLoading(false)
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [router])
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-          <p className="text-sm text-gray-600">Checking authentication...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     )
   }
 
-  // If authenticated, don't render the auth form (redirect is happening)
-  if (isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-          <p className="text-sm text-gray-600">Redirecting to dashboard...</p>
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="max-w-md w-full space-y-8 p-8">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-gray-900">PesaPlan</h1>
+          <p className="mt-2 text-gray-600">Manage your finances with ease</p>
         </div>
+        <AuthForm />
       </div>
-    )
-  }
-
-  // Show auth form only if not authenticated
-  return <AuthForm />
+    </div>
+  )
 }
