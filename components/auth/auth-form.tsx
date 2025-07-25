@@ -3,164 +3,159 @@
 import type React from "react"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { signIn, signUp } from "@/lib/auth" // Corrected imports
 import { useToast } from "@/hooks/use-toast"
-import { signIn, signUp } from "@/lib/auth"
-import { Loader2 } from "lucide-react"
 
 export function AuthForm() {
-  const [loading, setLoading] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [fullName, setFullName] = useState("")
+  const [loading, setLoading] = useState(false)
   const { toast } = useToast()
-  const router = useRouter()
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-
-    try {
-      const { error } = await signIn(email, password)
-      if (error) throw error
-
+    if (!email || !password) {
+      toast({
+        title: "Validation Error",
+        description: "Email and password are required.",
+        variant: "destructive",
+      })
+      setLoading(false)
+      return
+    }
+    const { error } = await signIn(email, password) // Corrected function call
+    if (error) {
+      toast({
+        title: "Sign In Error",
+        description: error.message,
+        variant: "destructive",
+      })
+    } else {
       toast({
         title: "Success",
         description: "Signed in successfully!",
       })
-
-      router.push("/dashboard")
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
+      // Redirect or refresh page
+      window.location.reload()
     }
+    setLoading(false)
   }
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-
-    try {
-      const { error } = await signUp(email, password, fullName)
-      if (error) throw error
-
+    if (!email || !password) {
       toast({
-        title: "Success",
-        description: "Account created successfully! You can now sign in.",
+        title: "Validation Error",
+        description: "Email and password are required.",
+        variant: "destructive",
       })
-
-      // Reset form
-      setEmail("")
-      setPassword("")
-      setFullName("")
-    } catch (error: any) {
+      setLoading(false)
+      return
+    }
+    const { error } = await signUp(email, password) // Corrected function call
+    if (error) {
       toast({
-        title: "Error",
+        title: "Sign Up Error",
         description: error.message,
         variant: "destructive",
       })
-    } finally {
-      setLoading(false)
+    } else {
+      toast({
+        title: "Success",
+        description: "Signed up successfully! Please check your email for verification.",
+      })
+      // Optionally clear form or redirect
+      setEmail("")
+      setPassword("")
     }
+    setLoading(false)
   }
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle>Welcome to PesaPlan</CardTitle>
-        <CardDescription>Sign in to your account or create a new one</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="signin" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="signin">Sign In</TabsTrigger>
-            <TabsTrigger value="signup">Sign Up</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="signin">
+    <Tabs defaultValue="signin" className="w-[400px]">
+      <TabsList className="grid w-full grid-cols-2">
+        <TabsTrigger value="signin">Sign In</TabsTrigger>
+        <TabsTrigger value="signup">Sign Up</TabsTrigger>
+      </TabsList>
+      <TabsContent value="signin">
+        <Card>
+          <CardHeader>
+            <CardTitle>Sign In</CardTitle>
+            <CardDescription>Sign in to your account to access your dashboard.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <form onSubmit={handleSignIn} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="signin-email">Email</Label>
+                <Label htmlFor="email-signin">Email</Label>
                 <Input
-                  id="signin-email"
+                  id="email-signin"
                   type="email"
-                  placeholder="Enter your email"
+                  placeholder="m@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="signin-password">Password</Label>
+                <Label htmlFor="password-signin">Password</Label>
                 <Input
-                  id="signin-password"
+                  id="password-signin"
                   type="password"
-                  placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Sign In
+                {loading ? "Signing In..." : "Sign In"}
               </Button>
             </form>
-          </TabsContent>
-
-          <TabsContent value="signup">
+          </CardContent>
+        </Card>
+      </TabsContent>
+      <TabsContent value="signup">
+        <Card>
+          <CardHeader>
+            <CardTitle>Sign Up</CardTitle>
+            <CardDescription>Create an account to start managing your finances.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <form onSubmit={handleSignUp} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="signup-name">Full Name</Label>
+                <Label htmlFor="email-signup">Email</Label>
                 <Input
-                  id="signup-name"
-                  type="text"
-                  placeholder="Enter your full name"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="signup-email">Email</Label>
-                <Input
-                  id="signup-email"
+                  id="email-signup"
                   type="email"
-                  placeholder="Enter your email"
+                  placeholder="m@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="signup-password">Password</Label>
+                <Label htmlFor="password-signup">Password</Label>
                 <Input
-                  id="signup-password"
+                  id="password-signup"
                   type="password"
-                  placeholder="Create a password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Sign Up
+                {loading ? "Signing Up..." : "Sign Up"}
               </Button>
             </form>
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+          </CardContent>
+        </Card>
+      </TabsContent>
+    </Tabs>
   )
 }

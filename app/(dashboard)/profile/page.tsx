@@ -1,68 +1,110 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
 import { Button } from "@/components/ui/button"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
-import { toast } from "@/hooks/use-toast"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { supabase } from "@/lib/supabase"
-import { Mail } from "lucide-react"
-import ChangePasswordForm from "@/components/auth/change-password-form" // Import the new component
+import { useToast } from "@/hooks/use-toast"
+import type { Profile } from "@/lib/supabase"
+import { ChangePasswordForm } from "@/components/auth/change-password-form"
 
-interface UserProfile {
-  id: string
-  email: string
-  full_name: string
-  username: string
-}
+const profileFormSchema = z.object({
+  username: z.string().min(1, "Username is required."),
+  full_name: z.string().min(1, "Full name is required."),
+  phone_number: z.string().optional(),
+})
 
 export default function ProfilePage() {
-  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const { toast } = useToast()
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [editing, setEditing] = useState(false)
-  const [formData, setFormData] = useState({
-    full_name: "",
-    username: "",
+  const [profile, setProfile] = useState<Profile | null>(null)
+
+  const profileForm = useForm<z.infer<typeof profileFormSchema>>({
+    resolver: zodResolver(profileFormSchema),
+    defaultValues: {
+      username: "",
+      full_name: "",
+      phone_number: "",
+    },
   })
 
   useEffect(() => {
-    fetchProfile()
-  }, [])
-
-  const fetchProfile = async () => {
-    try {
+    const getProfile = async () => {
+      setLoading(true)
       const {
         data: { user },
       } = await supabase.auth.getUser()
-      if (!user) return
 
-      const { data, error } = await supabase.from("profiles").select(`full_name, username`).eq("id", user.id).single()
+      if (user) {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select(`username, full_name, phone_number`)
+          .eq("id", user.id)
+          .single()
 
-      if (error && error.code !== "PGRST116") {
-        console.error("Error fetching profile:", error)
-        return
+        if (error) {
+          console.error("Error fetching profile:", error)
+          toast({
+            title: "Error",
+            description: "Failed to load profile data.",
+            variant: "destructive",
+          })
+        } else if (data) {
+          setProfile(data)
+          profileForm.reset(data)
+        }
       }
+      setLoading(false)
+    }
 
-      const profileData = {
-        id: user.id,
-        email: user.email || "",
-        full_name: data?.full_name || "",
-        username: data?.username || "",
-      }
+    getProfile()
+  }, [profileForm, toast])
 
-      setProfile(profileData)
-      setFormData({
-        full_name: profileData.full_name,
-        username: profileData.username,
-      })
-    } catch (error) {
-      console.error("Error:", error)
+  const onProfileSubmit = async (values: z.infer<typeof profileFormSchema>) => {
+    setLoading(true)
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
       toast({
         title: "Error",
-        description: "Failed to load profile information",
+        description: "You must be logged in to update your profile.",
+        variant: "destructive",
+      })
+      setLoading(false)
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          username: values.username,
+          full_name: values.full_name,
+          phone_number: values.phone_number,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", user.id)
+
+      if (error) {
+        throw error
+      }
+
+      toast({
+        title: "Success",
+        description: "Profile updated successfully!",
+      })
+    } catch (error: any) {
+      console.error("Error updating profile:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update profile.",
         variant: "destructive",
       })
     } finally {
@@ -70,155 +112,66 @@ export default function ProfilePage() {
     }
   }
 
-  const handleSave = async () => {
-    if (!profile) return
-
-    setSaving(true)
-    try {
-      const { error } = await supabase.from("profiles").upsert({
-        id: profile.id,
-        full_name: formData.full_name,
-        username: formData.username,
-        updated_at: new Date().toISOString(),
-      })
-
-      if (error) throw error
-
-      setProfile({
-        ...profile,
-        ...formData,
-      })
-      setEditing(false)
-      toast({
-        title: "Success",
-        description: "Profile updated successfully",
-      })
-    } catch (error) {
-      console.error("Error updating profile:", error)
-      toast({
-        title: "Error",
-        description: "Failed to update profile",
-        variant: "destructive",
-      })
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleCancel = () => {
-    setFormData({
-      full_name: profile?.full_name || "",
-      username: profile?.username || "",
-    })
-    setEditing(false)
-  }
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Profile</h1>
-          <p className="text-muted-foreground">Manage your account information</p>
-        </div>
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Loading profile...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!profile) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Profile</h1>
-          <p className="text-muted-foreground">Manage your account information</p>
-        </div>
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Failed to load profile</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Profile</h1>
-        <p className="text-muted-foreground">Manage your account information</p>
-      </div>
+    <div className="space-y-6 p-6">
+      <h1 className="text-3xl font-bold tracking-tight">Profile Settings</h1>
+      <p className="text-muted-foreground">Manage your profile information and security settings.</p>
 
       <Card>
         <CardHeader>
           <CardTitle>Profile Information</CardTitle>
-          <CardDescription>Your personal information</CardDescription>
+          <CardDescription>Update your personal details.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex items-center space-x-4">
-            <div>
-              <p className="text-lg font-semibold">{profile.full_name || "No Name"}</p>
-              <p className="text-sm text-muted-foreground">@{profile.username || "no-username"}</p>
-            </div>
-          </div>
-
-          <Separator />
-
-          <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <div className="flex items-center space-x-2">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <p className="text-sm py-2 px-3 bg-muted rounded-md flex-1">{profile.email}</p>
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="full_name">Full Name</Label>
-              {editing ? (
-                <Input
-                  id="full_name"
-                  value={formData.full_name}
-                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                  placeholder="Enter your full name"
-                />
-              ) : (
-                <p className="text-sm py-2 px-3 bg-muted rounded-md">{profile.full_name || "Not set"}</p>
-              )}
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="username">Username</Label>
-              {editing ? (
-                <Input
-                  id="username"
-                  value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  placeholder="Enter your username"
-                />
-              ) : (
-                <p className="text-sm py-2 px-3 bg-muted rounded-md">{profile.username || "Not set"}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="flex justify-end space-x-2">
-            {editing ? (
-              <>
-                <Button variant="outline" onClick={handleCancel}>
-                  Cancel
-                </Button>
-                <Button onClick={handleSave} disabled={saving}>
-                  {saving ? "Saving..." : "Save Changes"}
-                </Button>
-              </>
-            ) : (
-              <Button onClick={() => setEditing(true)}>Edit Profile</Button>
-            )}
-          </div>
+        <CardContent>
+          <Form {...profileForm}>
+            <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
+              <FormField
+                control={profileForm.control}
+                name="username"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Username</FormLabel>
+                    <FormControl>
+                      <Input {...field} required />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={profileForm.control}
+                name="full_name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Full Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} required />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={profileForm.control}
+                name="phone_number"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone Number (Optional)</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" disabled={loading}>
+                {loading ? "Saving..." : "Save Profile"}
+              </Button>
+            </form>
+          </Form>
         </CardContent>
       </Card>
 
-      {/* New section for Change Password */}
       <ChangePasswordForm />
     </div>
   )

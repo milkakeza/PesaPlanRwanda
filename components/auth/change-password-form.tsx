@@ -1,58 +1,59 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
 import { Button } from "@/components/ui/button"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { toast } from "@/hooks/use-toast"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { changePassword } from "@/lib/auth"
+import { useToast } from "@/hooks/use-toast"
 
-export default function ChangePasswordForm() {
-  const [newPassword, setNewPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [saving, setSaving] = useState(false)
+const formSchema = z
+  .object({
+    newPassword: z.string().min(6, "Password must be at least 6 characters."),
+    confirmPassword: z.string().min(6, "Password must be at least 6 characters."),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords don't match.",
+    path: ["confirmPassword"],
+  })
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (newPassword !== confirmPassword) {
-      toast({
-        title: "Error",
-        description: "New password and confirm password do not match.",
-        variant: "destructive",
-      })
-      return
-    }
+export function ChangePasswordForm() {
+  const { toast } = useToast()
+  const [loading, setLoading] = useState(false)
 
-    if (newPassword.length < 6) {
-      toast({
-        title: "Error",
-        description: "Password must be at least 6 characters long.",
-        variant: "destructive",
-      })
-      return
-    }
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      newPassword: "",
+      confirmPassword: "",
+    },
+  })
 
-    setSaving(true)
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    setLoading(true)
     try {
-      await changePassword(newPassword)
+      const { error } = await changePassword(values.newPassword)
+      if (error) {
+        throw error
+      }
       toast({
         title: "Success",
         description: "Your password has been updated successfully.",
       })
-      setNewPassword("")
-      setConfirmPassword("")
-    } catch (error) {
+      form.reset()
+    } catch (error: any) {
       console.error("Error changing password:", error)
       toast({
         title: "Error",
-        description: "Failed to update password. Please try again.",
+        description: error.message || "Failed to update password.",
         variant: "destructive",
       })
     } finally {
-      setSaving(false)
+      setLoading(false)
     }
   }
 
@@ -63,31 +64,39 @@ export default function ChangePasswordForm() {
         <CardDescription>Update your account password.</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-2">
-            <Label htmlFor="new-password">New Password</Label>
-            <Input
-              id="new-password"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              required
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="newPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>New Password</FormLabel>
+                  <FormControl>
+                    <Input type="password" {...field} required />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="confirm-password">Confirm New Password</Label>
-            <Input
-              id="confirm-password"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
+            <FormField
+              control={form.control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Confirm New Password</FormLabel>
+                  <FormControl>
+                    <Input type="password" {...field} required />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          <Button type="submit" disabled={saving}>
-            {saving ? "Saving..." : "Change Password"}
-          </Button>
-        </form>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Updating..." : "Change Password"}
+            </Button>
+          </form>
+        </Form>
       </CardContent>
     </Card>
   )

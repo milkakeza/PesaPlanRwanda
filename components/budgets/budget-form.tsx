@@ -1,227 +1,311 @@
 "use client"
-
-import type React from "react"
-
 import { useState, useEffect } from "react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { supabase, type Category } from "@/lib/supabase"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
+import { format } from "date-fns"
+import { CalendarIcon } from "lucide-react"
+import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2 } from "lucide-react"
+import type { Category, Budget } from "@/lib/supabase" // Import Budget type
+
+const formSchema = z.object({
+  name: z.string().min(1, "Budget name is required."),
+  amount: z.coerce.number().min(1, "Amount is required and must be positive."),
+  category_id: z.string().min(1, "Category is required."),
+  period: z.enum(["weekly", "monthly", "yearly"], {
+    required_error: "Period is required.",
+  }),
+  start_date: z.date({
+    required_error: "Start date is required.",
+  }),
+  end_date: z.date({
+    required_error: "End date is required.",
+  }),
+})
 
 interface BudgetFormProps {
-  onSuccess?: () => void
+  onSuccess: () => void
+  isOpen: boolean
+  onClose: () => void
+  initialData?: Budget // For editing
 }
 
-export default function BudgetForm({ onSuccess }: BudgetFormProps) {
-  const [loading, setLoading] = useState(false)
-  const [categories, setCategories] = useState<Category[]>([])
-  const [formData, setFormData] = useState({
-    name: "",
-    amount: "",
-    category_id: "",
-    period: "monthly" as "weekly" | "monthly" | "yearly",
-    start_date: new Date().toISOString().split("T")[0],
-    end_date: "",
-  })
+export default function BudgetForm({ onSuccess, isOpen, onClose, initialData }: BudgetFormProps) {
   const { toast } = useToast()
+  const [categories, setCategories] = useState<Category[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: initialData?.name || "",
+      amount: initialData?.amount || 0,
+      category_id: initialData?.category_id || "",
+      period: initialData?.period || "monthly",
+      start_date: initialData?.start_date ? new Date(initialData.start_date) : new Date(),
+      end_date: initialData?.end_date ? new Date(initialData.end_date) : new Date(),
+    },
+  })
 
   useEffect(() => {
-    fetchCategories()
-    calculateEndDate()
-  }, [formData.period, formData.start_date])
-
-  const fetchCategories = async () => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data, error } = await supabase.from("categories").select("*").eq("user_id", user.id).order("name")
-
-      if (error) throw error
-      setCategories(data || [])
-    } catch (error) {
-      console.error("Error fetching categories:", error)
-    }
-  }
-
-  const calculateEndDate = () => {
-    if (!formData.start_date) return
-
-    const startDate = new Date(formData.start_date)
-    const endDate = new Date(startDate)
-
-    switch (formData.period) {
-      case "weekly":
-        endDate.setDate(startDate.getDate() + 7)
-        break
-      case "monthly":
-        endDate.setMonth(startDate.getMonth() + 1)
-        break
-      case "yearly":
-        endDate.setFullYear(startDate.getFullYear() + 1)
-        break
-    }
-
-    setFormData((prev) => ({
-      ...prev,
-      end_date: endDate.toISOString().split("T")[0],
-    }))
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("User not authenticated")
-
-      const { error } = await supabase.from("budgets").insert({
-        user_id: user.id,
-        name: formData.name,
-        amount: Number.parseFloat(formData.amount),
-        category_id: formData.category_id,
-        period: formData.period,
-        start_date: formData.start_date,
-        end_date: formData.end_date,
+    if (initialData) {
+      form.reset({
+        name: initialData.name,
+        amount: initialData.amount,
+        category_id: initialData.category_id,
+        period: initialData.period,
+        start_date: new Date(initialData.start_date),
+        end_date: new Date(initialData.end_date),
       })
-
-      if (error) throw error
-
-      toast({
-        title: "Budget created successfully!",
-        description: "Your budget has been set up.",
-      })
-
-      // Reset form
-      setFormData({
+    } else {
+      form.reset({
         name: "",
-        amount: "",
+        amount: 0,
         category_id: "",
         period: "monthly",
-        start_date: new Date().toISOString().split("T")[0],
-        end_date: "",
+        start_date: new Date(),
+        end_date: new Date(),
       })
+    }
+  }, [initialData, form])
 
-      onSuccess?.()
+  useEffect(() => {
+    const fetchCategories = async () => {
+      setLoading(true)
+      try {
+        const { data, error } = await supabase.from("categories").select("*").order("name")
+
+        if (error) throw error
+        setCategories(data || [])
+      } catch (error) {
+        console.error("Error fetching categories:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load categories.",
+          variant: "destructive",
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (isOpen) {
+      fetchCategories()
+    }
+  }, [isOpen, toast])
+
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) {
+        toast({
+          title: "Error",
+          description: "You must be logged in to add a budget.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const budgetData = {
+        user_id: user.id,
+        name: values.name,
+        amount: values.amount,
+        category_id: values.category_id,
+        period: values.period,
+        start_date: values.start_date.toISOString().split("T")[0], // Format date for DB
+        end_date: values.end_date.toISOString().split("T")[0], // Format date for DB
+      }
+
+      if (initialData) {
+        // Update existing budget
+        const { error } = await supabase.from("budgets").update(budgetData).eq("id", initialData.id)
+
+        if (error) throw error
+        toast({
+          title: "Success",
+          description: "Budget updated successfully!",
+        })
+      } else {
+        // Insert new budget
+        const { error } = await supabase.from("budgets").insert(budgetData)
+
+        if (error) throw error
+        toast({
+          title: "Success",
+          description: "Budget added successfully!",
+        })
+      }
+      onSuccess()
+      onClose()
     } catch (error: any) {
+      console.error("Error submitting budget:", error)
       toast({
-        title: "Error creating budget",
-        description: error.message,
+        title: "Error",
+        description: error.message || "Failed to save budget.",
         variant: "destructive",
       })
-    } finally {
-      setLoading(false)
     }
   }
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-  }
+  if (!isOpen) return null
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle>Create New Budget</CardTitle>
-        <CardDescription>Set spending limits to manage your finances</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Budget Name</Label>
-            <Input
-              id="name"
-              placeholder="e.g., Monthly Groceries"
-              value={formData.name}
-              onChange={(e) => handleInputChange("name", e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="amount">Amount (RWF)</Label>
-            <Input
-              id="amount"
-              type="number"
-              step="0.01"
-              placeholder="0.00"
-              value={formData.amount}
-              onChange={(e) => handleInputChange("amount", e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="category">Category</Label>
-            <Select
-              value={formData.category_id}
-              onValueChange={(value) => handleInputChange("category_id", value)}
-              required
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a category" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((category) => (
-                  <SelectItem key={category.id} value={category.id}>
-                    <div className="flex items-center space-x-2">
-                      <span>{category.icon}</span>
-                      <span>{category.name}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="period">Period</Label>
-            <Select
-              value={formData.period}
-              onValueChange={(value: "weekly" | "monthly" | "yearly") => handleInputChange("period", value)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="weekly">Weekly</SelectItem>
-                <SelectItem value="monthly">Monthly</SelectItem>
-                <SelectItem value="yearly">Yearly</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="start_date">Start Date</Label>
-              <Input
-                id="start_date"
-                type="date"
-                value={formData.start_date}
-                onChange={(e) => handleInputChange("start_date", e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="end_date">End Date</Label>
-              <Input id="end_date" type="date" value={formData.end_date} readOnly className="bg-muted" />
-            </div>
-          </div>
-
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Create Budget
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Budget Name</FormLabel>
+              <FormControl>
+                <Input placeholder="e.g., Groceries" {...field} required />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="amount"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Amount (RWF)</FormLabel>
+              <FormControl>
+                <Input type="number" placeholder="e.g., 100000" {...field} required />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="category_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Category</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value} required>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="period"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Period</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value} required>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select period" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                  <SelectItem value="yearly">Yearly</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="start_date"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel>Start Date</FormLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant={"outline"}
+                        className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
+                        required
+                      >
+                        {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={field.value}
+                      onSelect={field.onChange}
+                      disabled={(date) => date < new Date("1900-01-01")}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="end_date"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel>End Date</FormLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant={"outline"}
+                        className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
+                        required
+                      >
+                        {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={field.value}
+                      onSelect={field.onChange}
+                      disabled={(date) => date < new Date("1900-01-01")}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || loading}>
+          {initialData ? "Update Budget" : "Add Budget"}
+        </Button>
+      </form>
+    </Form>
   )
 }

@@ -5,31 +5,28 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
 import BudgetForm from "@/components/budgets/budget-form"
-import { Plus, Trash2, AlertTriangle } from "lucide-react"
+import { Plus, Trash2, Edit } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
-
-interface Budget {
-  id: string
-  name: string
-  amount: number
-  period: string
-  start_date: string
-  end_date: string
-  spent: number
-  category: {
-    name: string
-    color: string
-    icon: string
-  }
-}
+import type { Budget } from "@/lib/supabase"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 export default function BudgetsPage() {
   const [open, setOpen] = useState(false)
   const [budgets, setBudgets] = useState<Budget[]>([])
   const [loading, setLoading] = useState(true)
+  const [editingBudget, setEditingBudget] = useState<Budget | undefined>(undefined)
   const { toast } = useToast()
 
   const fetchBudgets = async () => {
@@ -39,44 +36,15 @@ export default function BudgetsPage() {
       } = await supabase.auth.getUser()
       if (!user) return
 
-      // First get budgets with categories
-      const { data: budgetsData, error: budgetsError } = await supabase
+      const { data, error } = await supabase
         .from("budgets")
-        .select(`
-          id,
-          name,
-          amount,
-          period,
-          start_date,
-          end_date,
-          category:categories(name, color, icon)
-        `)
+        .select(`*, category:categories(name, color, icon)`)
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
 
-      if (budgetsError) throw budgetsError
+      if (error) throw error
 
-      // Then calculate spent amount for each budget
-      const budgetsWithSpent = await Promise.all(
-        (budgetsData || []).map(async (budget) => {
-          const { data: expensesData, error: expensesError } = await supabase
-            .from("expenses")
-            .select("amount")
-            .eq("budget_id", budget.id)
-            .gte("expense_date", budget.start_date)
-            .lte("expense_date", budget.end_date)
-
-          if (expensesError) {
-            console.error("Error fetching expenses for budget:", expensesError)
-            return { ...budget, spent: 0 }
-          }
-
-          const spent = expensesData?.reduce((sum, expense) => sum + expense.amount, 0) || 0
-          return { ...budget, spent }
-        }),
-      )
-
-      setBudgets(budgetsWithSpent)
+      setBudgets(data || [])
     } catch (error) {
       console.error("Error fetching budgets:", error)
       toast({
@@ -95,6 +63,7 @@ export default function BudgetsPage() {
 
   const handleBudgetAdded = () => {
     setOpen(false)
+    setEditingBudget(undefined) // Clear editing state
     fetchBudgets() // Refresh the list
   }
 
@@ -119,6 +88,11 @@ export default function BudgetsPage() {
     }
   }
 
+  const handleEditBudget = (budget: Budget) => {
+    setEditingBudget(budget)
+    setOpen(true)
+  }
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-RW", {
       style: "currency",
@@ -135,36 +109,27 @@ export default function BudgetsPage() {
     })
   }
 
-  const getProgressColor = (spent: number, budget: number) => {
-    const percentage = (spent / budget) * 100
-    if (percentage >= 100) return "bg-red-500"
-    if (percentage >= 80) return "bg-yellow-500"
-    return "bg-green-500"
-  }
-
-  const getBudgetStatus = (spent: number, budget: number) => {
-    const percentage = (spent / budget) * 100
-    if (percentage >= 100) return { status: "Over Budget", color: "destructive" as const }
-    if (percentage >= 80) return { status: "Near Limit", color: "secondary" as const }
-    return { status: "On Track", color: "default" as const }
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Budgets</h1>
-          <p className="text-muted-foreground">Set and manage your spending limits</p>
+          <p className="text-muted-foreground">Set spending limits to manage your finances</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button onClick={() => setEditingBudget(undefined)}>
               <Plus className="mr-2 h-4 w-4" />
-              Create Budget
+              Add Budget
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
-            <BudgetForm onSuccess={handleBudgetAdded} />
+          <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+            <BudgetForm
+              onSuccess={handleBudgetAdded}
+              isOpen={open}
+              onClose={() => setOpen(false)}
+              initialData={editingBudget}
+            />
           </DialogContent>
         </Dialog>
       </div>
@@ -177,81 +142,65 @@ export default function BudgetsPage() {
         <Card>
           <CardContent className="text-center py-8">
             <p className="text-muted-foreground">
-              No budgets found. Create your first budget to start tracking your spending!
+              No budgets found. Add your first budget to start managing your spending!
             </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {budgets.map((budget) => {
-            const progressPercentage = Math.min((budget.spent / budget.amount) * 100, 100)
-            const { status, color } = getBudgetStatus(budget.spent, budget.amount)
-
-            return (
-              <Card key={budget.id} className="relative">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant="secondary"
-                        className="text-xs"
-                        style={{ backgroundColor: `${budget.category.color}20`, color: budget.category.color }}
-                      >
-                        <span className="mr-1">{budget.category.icon}</span>
-                        {budget.category.name}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => handleDeleteBudget(budget.id)}>
-                        <Trash2 className="h-4 w-4" />
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {budgets.map((budget) => (
+            <Card key={budget.id}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-lg font-medium">{budget.name}</CardTitle>
+                <div className="flex gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => handleEditBudget(budget)}>
+                    <Edit className="h-4 w-4" />
+                    <span className="sr-only">Edit budget</span>
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                        <span className="sr-only">Delete budget</span>
                       </Button>
-                    </div>
-                  </div>
-                  <CardTitle className="text-lg">{budget.name}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Spent</span>
-                      <span className="font-medium">{formatCurrency(budget.spent)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Budget</span>
-                      <span className="font-medium">{formatCurrency(budget.amount)}</span>
-                    </div>
-                    <Progress value={progressPercentage} className="h-2" />
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-muted-foreground">{progressPercentage.toFixed(1)}% used</span>
-                      <Badge variant={color} className="text-xs">
-                        {progressPercentage >= 100 && <AlertTriangle className="w-3 h-3 mr-1" />}
-                        {status}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t">
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Period: {budget.period}</span>
-                    </div>
-                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                      <span>
-                        {formatDate(budget.start_date)} - {formatDate(budget.end_date)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {budget.spent > budget.amount && (
-                    <div className="bg-red-50 border border-red-200 rounded-md p-2">
-                      <div className="flex items-center gap-2 text-red-700 text-xs">
-                        <AlertTriangle className="w-3 h-3" />
-                        <span>Over budget by {formatCurrency(budget.spent - budget.amount)}</span>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )
-          })}
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete your budget.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleDeleteBudget(budget.id)}>Continue</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="text-2xl font-bold">{formatCurrency(budget.amount)}</div>
+                <p className="text-sm text-muted-foreground">
+                  {budget.period} budget for{" "}
+                  <Badge
+                    variant="secondary"
+                    className="text-xs"
+                    style={{
+                      backgroundColor: `${budget.category?.color}20`,
+                      color: budget.category?.color,
+                    }}
+                  >
+                    <span className="mr-1">{budget.category?.icon}</span>
+                    {budget.category?.name}
+                  </Badge>
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {formatDate(budget.start_date)} - {formatDate(budget.end_date)}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
     </div>
