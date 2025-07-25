@@ -37,17 +37,19 @@ export const signUp = async (email: string, password: string, fullName: string) 
   return data
 }
 
-export async function signIn(email: string, password: string) {
+export const signIn = async (email: string, password: string) => {
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   })
-  return { data, error }
+
+  if (error) throw error
+  return data
 }
 
-export async function signOut() {
+export const signOut = async () => {
   const { error } = await supabase.auth.signOut()
-  return { error }
+  if (error) throw error
 }
 
 export const getCurrentUser = async () => {
@@ -57,11 +59,12 @@ export const getCurrentUser = async () => {
   return user
 }
 
-export async function changePassword(newPassword: string) {
+export const changePassword = async (newPassword: string) => {
   const { data, error } = await supabase.auth.updateUser({
     password: newPassword,
   })
-  return { data, error }
+  if (error) throw error
+  return data
 }
 
 const createDefaultCategories = async () => {

@@ -15,7 +15,7 @@ interface Expense {
   id: string
   amount: number
   description: string
-  expense_date: string // Corrected from 'date'
+  expense_date: string
   notes?: string
   category: {
     name: string
