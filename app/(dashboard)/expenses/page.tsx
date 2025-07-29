@@ -104,7 +104,9 @@ export default function ExpensesPage() {
       style: "currency",
       currency: "RWF",
       minimumFractionDigits: 0,
-    }).format(amount)
+    })
+      .format(amount)
+      .replace("RF", "RWF")
   }
 
   const formatDate = (dateString: string) => {

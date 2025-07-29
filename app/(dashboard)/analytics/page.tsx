@@ -203,8 +203,7 @@ export default function AnalyticsPage() {
       maximumFractionDigits: 0,
     })
       .format(amount)
-      .replace("RWF", "")
-      .trim()
+      .replace("RF", "RWF")
   }
 
   // Prepare chart data

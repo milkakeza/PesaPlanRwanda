@@ -6,12 +6,14 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("rw-RW", {
+  return new Intl.NumberFormat("en-RW", {
     style: "currency",
     currency: "RWF",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount)
+  })
+    .format(amount)
+    .replace("RF", "RWF")
 }
 
 export function formatDate(date: string): string {
