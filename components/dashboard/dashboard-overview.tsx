@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { supabase, type Budget, type Expense } from "@/lib/supabase"
-import { DollarSign, TrendingUp, Target, AlertTriangle } from "lucide-react"
+import { Banknote, TrendingUp, Target, AlertTriangle } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
 
 interface DashboardStats {
@@ -269,7 +269,7 @@ export default function DashboardOverview() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <Banknote className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(stats.totalExpenses)}</div>
