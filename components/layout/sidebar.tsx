@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
-import { Home, CreditCard, Target, BarChart3, Menu, LogOut, User } from "lucide-react" // Removed Settings icon import
+import { Home, CreditCard, Target, BarChart3, Menu, LogOut, User } from "lucide-react"
 import { signOut } from "@/lib/auth"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
@@ -16,8 +16,7 @@ const navigation = [
   { name: "Expenses", href: "/expenses", icon: CreditCard },
   { name: "Budgets", href: "/budgets", icon: Target },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
-  { name: "Profile", href: "/profile", icon: User }, // Profile link remains
-  // { name: "Settings", href: "/settings", icon: Settings }, // Removed Settings link
+  { name: "Profile", href: "/profile", icon: User },
 ]
 
 export default function Sidebar() {
@@ -44,24 +43,27 @@ export default function Sidebar() {
   }
 
   const SidebarContent = () => (
-    <div className="flex h-full flex-col">
-      <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
+    <div className="flex h-full flex-col bg-gradient-to-b from-money-green to-money-green-dark">
+      <div className="flex h-14 items-center border-b border-money-green-dark/20 px-4 lg:h-[60px] lg:px-6">
         <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-          <span className="text-2xl">💰</span>
-          <span className="text-xl font-bold text-blue-600">PesaPlan</span>
+          <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+            <span className="text-xl">💰</span>
+          </div>
+          <span className="text-xl font-bold text-white">PesaPlan</span>
         </Link>
       </div>
       <div className="flex-1">
         <nav className="grid items-start px-2 text-sm font-medium lg:px-4 mt-4">
           {navigation.map((item) => {
             const Icon = item.icon
+            const isActive = pathname === item.href
             return (
               <Link
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
-                  pathname === item.href && "bg-muted text-primary",
+                  "flex items-center gap-3 rounded-lg px-3 py-3 text-white/80 transition-all hover:text-white hover:bg-white/10",
+                  isActive && "bg-white/20 text-white font-semibold shadow-sm",
                 )}
                 onClick={() => setOpen(false)}
               >
@@ -73,7 +75,11 @@ export default function Sidebar() {
         </nav>
       </div>
       <div className="mt-auto p-4">
-        <Button variant="outline" className="w-full justify-start bg-transparent" onClick={handleSignOut}>
+        <Button
+          variant="outline"
+          className="w-full justify-start bg-transparent border-white/20 text-white hover:bg-white/10 hover:text-white"
+          onClick={handleSignOut}
+        >
           <LogOut className="mr-2 h-4 w-4" />
           Sign Out
         </Button>
@@ -86,18 +92,22 @@ export default function Sidebar() {
       {/* Mobile Sidebar */}
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0 md:hidden bg-transparent">
+          <Button
+            variant="outline"
+            size="icon"
+            className="shrink-0 md:hidden bg-transparent border-money-green text-money-green hover:bg-money-green hover:text-white"
+          >
             <Menu className="h-5 w-5" />
             <span className="sr-only">Toggle navigation menu</span>
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="flex flex-col p-0">
+        <SheetContent side="left" className="flex flex-col p-0 border-r-0">
           <SidebarContent />
         </SheetContent>
       </Sheet>
 
       {/* Desktop Sidebar */}
-      <div className="hidden border-r bg-muted/40 md:block">
+      <div className="hidden border-r-0 md:block">
         <div className="flex h-full max-h-screen flex-col gap-2">
           <SidebarContent />
         </div>

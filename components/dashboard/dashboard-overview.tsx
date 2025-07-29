@@ -97,8 +97,6 @@ export default function DashboardOverview() {
       const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0]
       const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0]
 
-      console.log("Date range:", currentMonthStart, "to", currentMonthEnd)
-
       // Calculate current month expenses with better date handling
       const { data: monthlyExpenses } = await supabase
         .from("expenses")
@@ -107,28 +105,20 @@ export default function DashboardOverview() {
         .gte("expense_date", currentMonthStart)
         .lte("expense_date", currentMonthEnd)
 
-      console.log("Monthly expenses data:", monthlyExpenses)
-
       // Calculate total expenses (all time)
       const totalExpenses = allExpenses?.reduce((sum, exp) => sum + Number(exp.amount), 0) || 0
 
       // Calculate monthly expenses for budget comparison
       const monthlyExpensesTotal = monthlyExpenses?.reduce((sum, exp) => sum + Number(exp.amount), 0) || 0
 
-      console.log("Monthly expenses total:", monthlyExpensesTotal)
-
       // Calculate total budget (sum of all active budgets)
       const totalBudget = budgetsData?.reduce((sum, budget) => sum + Number(budget.amount), 0) || 0
-
-      console.log("Total budget:", totalBudget)
 
       // Calculate budget used percentage
       let budgetUsed = 0
       if (totalBudget > 0) {
         budgetUsed = (monthlyExpensesTotal / totalBudget) * 100
       }
-
-      console.log("Budget used percentage:", budgetUsed)
 
       // Count exceeded budgets and track details
       let budgetsExceeded = 0
@@ -141,16 +131,10 @@ export default function DashboardOverview() {
       }> = []
 
       if (budgetsData && budgetsData.length > 0) {
-        console.log("Checking budgets for exceeded amounts...")
-
         for (const budget of budgetsData) {
-          console.log(`Checking budget: ${budget.name} (${budget.category?.name}) - Amount: ${budget.amount}`)
-
           // Get the budget period dates, default to current month if not specified
           const budgetStart = budget.start_date || currentMonthStart
           const budgetEnd = budget.end_date || currentMonthEnd
-
-          console.log(`Budget period: ${budgetStart} to ${budgetEnd}`)
 
           // Get expenses for this budget's category within the budget period
           const { data: budgetExpenses, error } = await supabase
@@ -166,10 +150,7 @@ export default function DashboardOverview() {
             continue
           }
 
-          console.log(`Expenses for budget ${budget.name}:`, budgetExpenses)
-
           const spent = budgetExpenses?.reduce((sum, exp) => sum + Number(exp.amount), 0) || 0
-          console.log(`Total spent: ${spent}, Budget amount: ${budget.amount}`)
 
           if (spent > Number(budget.amount)) {
             budgetsExceeded++
@@ -181,13 +162,9 @@ export default function DashboardOverview() {
               budgetAmount: Number(budget.amount),
               overAmount,
             })
-            console.log(`Budget ${budget.name} is exceeded! Spent: ${spent}, Budget: ${budget.amount}`)
           }
         }
       }
-
-      console.log("Total budgets exceeded:", budgetsExceeded)
-      console.log("Exceeded budgets details:", exceededBudgets)
 
       setStats({
         totalExpenses,
@@ -212,17 +189,17 @@ export default function DashboardOverview() {
   const getBudgetStatus = (percentage: number) => {
     if (percentage <= 50) {
       return {
-        color: "text-green-600",
-        bgColor: "bg-green-100",
+        color: "text-money-green-dark",
+        bgColor: "bg-money-green-light",
         message: "On track",
-        progressColor: "bg-green-500",
+        progressColor: "bg-money-green",
       }
     } else if (percentage <= 80) {
       return {
-        color: "text-yellow-600",
-        bgColor: "bg-yellow-100",
+        color: "text-money-gold-dark",
+        bgColor: "bg-money-gold-light",
         message: "Caution",
-        progressColor: "bg-yellow-500",
+        progressColor: "bg-money-gold",
       }
     } else if (percentage <= 100) {
       return {
@@ -233,10 +210,10 @@ export default function DashboardOverview() {
       }
     } else {
       return {
-        color: "text-red-600",
-        bgColor: "bg-red-100",
+        color: "text-money-red-dark",
+        bgColor: "bg-money-red-light",
         message: "Over budget",
-        progressColor: "bg-red-500",
+        progressColor: "bg-money-red",
       }
     }
   }
@@ -247,7 +224,7 @@ export default function DashboardOverview() {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {[...Array(4)].map((_, i) => (
-          <Card key={i} className="animate-pulse">
+          <Card key={i} className="animate-pulse border-money-green/20">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <div className="h-4 bg-gray-200 rounded w-20"></div>
               <div className="h-4 w-4 bg-gray-200 rounded"></div>
@@ -266,33 +243,39 @@ export default function DashboardOverview() {
     <div className="space-y-6">
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="border-money-green/20 hover:border-money-green/40 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
-            <Banknote className="h-4 w-4 text-muted-foreground" />
+            <div className="p-2 bg-money-green-light rounded-full">
+              <Banknote className="h-4 w-4 text-money-green-dark" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(stats.totalExpenses)}</div>
+            <div className="text-2xl font-bold text-money-green-dark">{formatCurrency(stats.totalExpenses)}</div>
             <p className="text-xs text-muted-foreground">All time total</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-money-blue/20 hover:border-money-blue/40 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Budget</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
+            <div className="p-2 bg-money-blue-light rounded-full">
+              <Target className="h-4 w-4 text-money-blue-dark" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(stats.totalBudget)}</div>
+            <div className="text-2xl font-bold text-money-blue-dark">{formatCurrency(stats.totalBudget)}</div>
             <p className="text-xs text-muted-foreground">Monthly budget</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-money-gold/20 hover:border-money-gold/40 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Budget Used</CardTitle>
             <div className="flex items-center space-x-2">
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <div className="p-2 bg-money-gold-light rounded-full">
+                <TrendingUp className="h-4 w-4 text-money-gold-dark" />
+              </div>
               <span
                 className={`text-xs px-2 py-1 rounded-full ${budgetStatus.bgColor} ${budgetStatus.color} font-medium`}
               >
@@ -303,7 +286,7 @@ export default function DashboardOverview() {
           <CardContent>
             <div className="space-y-3">
               <div className="flex items-baseline justify-between">
-                <div className="text-2xl font-bold">{stats.budgetUsed.toFixed(1)}%</div>
+                <div className="text-2xl font-bold text-money-gold-dark">{stats.budgetUsed.toFixed(1)}%</div>
                 <div className="text-sm text-muted-foreground">
                   {formatCurrency(stats.monthlyExpenses)} / {formatCurrency(stats.totalBudget)}
                 </div>
@@ -323,23 +306,31 @@ export default function DashboardOverview() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className={`transition-colors ${stats.budgetsExceeded > 0 ? "border-money-red/40 bg-money-red-light/20" : "border-money-green/20 hover:border-money-green/40"}`}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Budget Alerts</CardTitle>
-            <AlertTriangle
-              className={`h-4 w-4 ${stats.budgetsExceeded > 0 ? "text-red-500" : "text-muted-foreground"}`}
-            />
+            <div
+              className={`p-2 rounded-full ${stats.budgetsExceeded > 0 ? "bg-money-red-light" : "bg-money-green-light"}`}
+            >
+              <AlertTriangle
+                className={`h-4 w-4 ${stats.budgetsExceeded > 0 ? "text-money-red-dark" : "text-money-green-dark"}`}
+              />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <div className={`text-2xl font-bold ${stats.budgetsExceeded > 0 ? "text-red-600" : ""}`}>
+              <div
+                className={`text-2xl font-bold ${stats.budgetsExceeded > 0 ? "text-money-red-dark" : "text-money-green-dark"}`}
+              >
                 {stats.budgetsExceeded}
               </div>
               {stats.budgetsExceeded > 0 ? (
                 <div className="space-y-1">
                   {stats.exceededBudgets.map((budget, index) => (
                     <div key={index} className="text-xs">
-                      <div className="font-medium text-red-600">{budget.categoryName}</div>
+                      <div className="font-medium text-money-red-dark">{budget.categoryName}</div>
                       <div className="text-muted-foreground">{formatCurrency(budget.overAmount)} over budget</div>
                     </div>
                   ))}
@@ -353,24 +344,27 @@ export default function DashboardOverview() {
       </div>
 
       {/* Recent Expenses */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Expenses</CardTitle>
-          <CardDescription>Your latest spending activity</CardDescription>
+      <Card className="border-money-blue/20">
+        <CardHeader className="bg-gradient-to-r from-money-blue-light to-money-green-light">
+          <CardTitle className="text-money-blue-dark">Recent Expenses</CardTitle>
+          <CardDescription className="text-money-blue-dark/70">Your latest spending activity</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <div className="space-y-4">
             {recentExpenses.length === 0 ? (
               <p className="text-muted-foreground text-center py-4">No expenses recorded yet</p>
             ) : (
               recentExpenses.map((expense) => (
-                <div key={expense.id} className="flex items-center justify-between">
+                <div
+                  key={expense.id}
+                  className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-money-green-light/30 to-money-blue-light/30 hover:from-money-green-light/50 hover:to-money-blue-light/50 transition-colors"
+                >
                   <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                      <span className="text-sm">{expense.category?.icon || "💰"}</span>
+                    <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center border-2 border-money-green/20">
+                      <span className="text-lg">{expense.category?.icon || "💰"}</span>
                     </div>
                     <div>
-                      <p className="font-medium">{expense.description || "Expense"}</p>
+                      <p className="font-medium text-money-blue-dark">{expense.description || "Expense"}</p>
                       <p className="text-sm text-muted-foreground">
                         {expense.category?.name || "Uncategorized"} •{" "}
                         {new Date(expense.expense_date).toLocaleDateString()}
@@ -378,7 +372,7 @@ export default function DashboardOverview() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-medium">{formatCurrency(Number(expense.amount))}</p>
+                    <p className="font-bold text-money-green-dark">{formatCurrency(Number(expense.amount))}</p>
                   </div>
                 </div>
               ))

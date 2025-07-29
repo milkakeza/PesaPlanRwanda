@@ -46,18 +46,26 @@ export default function HomePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-money-green-light to-money-blue-light">
+        <Loader2 className="h-8 w-8 animate-spin text-money-green" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-money-green-light via-white to-money-blue-light">
       <div className="max-w-md w-full space-y-8 p-8">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900">PesaPlan</h1>
-          <p className="mt-2 text-gray-600">Manage your finances with ease</p>
+          <div className="flex items-center justify-center mb-4">
+            <div className="w-16 h-16 bg-gradient-to-br from-money-green to-money-blue rounded-full flex items-center justify-center shadow-lg">
+              <span className="text-3xl">💰</span>
+            </div>
+          </div>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-money-green to-money-blue bg-clip-text text-transparent">
+            PesaPlan
+          </h1>
+          <p className="mt-2 text-money-blue-dark">Manage your finances with ease</p>
+          <p className="text-sm text-muted-foreground mt-1">Built for Rwandan youth and families</p>
         </div>
         <AuthForm />
       </div>
