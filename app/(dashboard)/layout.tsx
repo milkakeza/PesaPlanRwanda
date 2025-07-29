@@ -3,10 +3,10 @@
 import type React from "react"
 
 import { useEffect, useState } from "react"
-import { usePathname, useRouter } from "next/navigation" // Import usePathname
+import { usePathname, useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { Loader2 } from "lucide-react"
-import Sidebar from "@/components/layout/sidebar"
+import AppSidebar from "@/components/layout/sidebar"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -26,7 +26,7 @@ export default function DashboardLayout({
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<any>(null)
   const router = useRouter()
-  const pathname = usePathname() // Get current pathname
+  const pathname = usePathname()
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -51,7 +51,6 @@ export default function DashboardLayout({
 
     checkAuth()
 
-    // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -65,13 +64,11 @@ export default function DashboardLayout({
     return () => subscription.unsubscribe()
   }, [router])
 
-  // Function to get the current page name for breadcrumbs
   const getPageName = (path: string) => {
     const parts = path.split("/").filter(Boolean)
     if (parts.length === 0 || parts[parts.length - 1] === "dashboard") {
       return "Dashboard"
     }
-    // Capitalize the last part of the path
     return parts[parts.length - 1].charAt(0).toUpperCase() + parts[parts.length - 1].slice(1)
   }
 
@@ -91,7 +88,7 @@ export default function DashboardLayout({
 
   return (
     <SidebarProvider>
-      <Sidebar />
+      <AppSidebar />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />

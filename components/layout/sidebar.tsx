@@ -4,12 +4,12 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
-import { Home, CreditCard, Target, BarChart3, Menu, LogOut, User } from "lucide-react"
+import { Home, CreditCard, Target, BarChart3, LogOut, User } from "lucide-react"
 import { signOut } from "@/lib/auth"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
+import { Sidebar } from "@/components/ui/sidebar"
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: Home },
@@ -19,7 +19,7 @@ const navigation = [
   { name: "Profile", href: "/profile", icon: User },
 ]
 
-export default function Sidebar() {
+export default function AppSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const { toast } = useToast()
@@ -42,7 +42,7 @@ export default function Sidebar() {
     }
   }
 
-  const SidebarContent = () => (
+  const SidebarContentComponent = () => (
     <div className="flex h-full flex-col bg-gradient-to-b from-money-green to-money-green-dark">
       <div className="flex h-14 items-center border-b border-money-green-dark/20 px-4 lg:h-[60px] lg:px-6">
         <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
@@ -88,30 +88,8 @@ export default function Sidebar() {
   )
 
   return (
-    <>
-      {/* Mobile Sidebar */}
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger asChild>
-          <Button
-            variant="outline"
-            size="icon"
-            className="shrink-0 md:hidden bg-transparent border-money-green text-money-green hover:bg-money-green hover:text-white"
-          >
-            <Menu className="h-5 w-5" />
-            <span className="sr-only">Toggle navigation menu</span>
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="flex flex-col p-0 border-r-0">
-          <SidebarContent />
-        </SheetContent>
-      </Sheet>
-
-      {/* Desktop Sidebar */}
-      <div className="hidden border-r-0 md:block">
-        <div className="flex h-full max-h-screen flex-col gap-2">
-          <SidebarContent />
-        </div>
-      </div>
-    </>
+    <Sidebar className="border-r-0">
+      <SidebarContentComponent />
+    </Sidebar>
   )
 }
