@@ -2,7 +2,7 @@
 
 PesaPlan is a lightweight personal finance management tool that helps users track their daily expenses, manage budgets, and achieve their financial goals — all from a clean, simple interface.
 
-![Vercel Deploy](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)
+[Vercel Deploy](https://pesaplan.vercel.app)
 
 --------------------------------------------------------------------------
 
