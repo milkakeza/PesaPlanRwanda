@@ -1,6 +1,5 @@
 import type { Config } from "tailwindcss"
 
-// all in fixtures is set to tailwind v3 as interims solutions
 
 const config: Config = {
   darkMode: ["class"],
@@ -63,25 +62,25 @@ const config: Config = {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
-        // Custom money app colors
+        
         money: {
-          green: "#10B981", // Emerald green for positive money
+          green: "#10B981",
           "green-light": "#D1FAE5",
           "green-dark": "#047857",
-          blue: "#3B82F6", // Trust blue
+          blue: "#3B82F6", 
           "blue-light": "#DBEAFE",
           "blue-dark": "#1E40AF",
-          gold: "#F59E0B", // Gold for premium/achievements
+          gold: "#F59E0B", 
           "gold-light": "#FEF3C7",
           "gold-dark": "#D97706",
-          red: "#EF4444", // Alert red
+          red: "#EF4444", 
           "red-light": "#FEE2E2",
           "red-dark": "#DC2626",
-          purple: "#8B5CF6", // Premium purple
+          purple: "#8B5CF6", 
           "purple-light": "#EDE9FE",
           "purple-dark": "#7C3AED",
         },
-        // Rwanda flag inspired colors
+        
         rwanda: {
           blue: "#00A1DE",
           yellow: "#FAD201",

@@ -40,7 +40,7 @@ export default function DashboardOverview() {
   useEffect(() => {
     fetchDashboardData()
 
-    // Set up real-time subscription for expenses
+    // Real-time subscription for expenses
     const expensesSubscription = supabase
       .channel("expenses_changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => {
@@ -48,7 +48,7 @@ export default function DashboardOverview() {
       })
       .subscribe()
 
-    // Set up real-time subscription for budgets
+    // Real-time subscription for budgets
     const budgetsSubscription = supabase
       .channel("budgets_changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "budgets" }, () => {
@@ -69,10 +69,10 @@ export default function DashboardOverview() {
       } = await supabase.auth.getUser()
       if (!user) return
 
-      // Fetch ALL expenses for total calculation
+
       const { data: allExpenses } = await supabase.from("expenses").select("amount").eq("user_id", user.id)
 
-      // Fetch recent expenses for display
+
       const { data: expenses } = await supabase
         .from("expenses")
         .select(`
@@ -83,7 +83,7 @@ export default function DashboardOverview() {
         .order("created_at", { ascending: false })
         .limit(5)
 
-      // Fetch budgets with spending
+
       const { data: budgetsData } = await supabase
         .from("budgets")
         .select(`
@@ -92,12 +92,12 @@ export default function DashboardOverview() {
         `)
         .eq("user_id", user.id)
 
-      // Get current month start and end dates
+
       const now = new Date()
       const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0]
       const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0]
 
-      // Calculate current month expenses with better date handling
+
       const { data: monthlyExpenses } = await supabase
         .from("expenses")
         .select("amount, expense_date")
@@ -105,22 +105,22 @@ export default function DashboardOverview() {
         .gte("expense_date", currentMonthStart)
         .lte("expense_date", currentMonthEnd)
 
-      // Calculate total expenses (all time)
+
       const totalExpenses = allExpenses?.reduce((sum, exp) => sum + Number(exp.amount), 0) || 0
 
-      // Calculate monthly expenses for budget comparison
+
       const monthlyExpensesTotal = monthlyExpenses?.reduce((sum, exp) => sum + Number(exp.amount), 0) || 0
 
-      // Calculate total budget (sum of all active budgets)
+
       const totalBudget = budgetsData?.reduce((sum, budget) => sum + Number(budget.amount), 0) || 0
 
-      // Calculate budget used percentage
+
       let budgetUsed = 0
       if (totalBudget > 0) {
         budgetUsed = (monthlyExpensesTotal / totalBudget) * 100
       }
 
-      // Count exceeded budgets and track details
+
       let budgetsExceeded = 0
       const exceededBudgets: Array<{
         name: string
@@ -132,11 +132,11 @@ export default function DashboardOverview() {
 
       if (budgetsData && budgetsData.length > 0) {
         for (const budget of budgetsData) {
-          // Get the budget period dates, default to current month if not specified
+
           const budgetStart = budget.start_date || currentMonthStart
           const budgetEnd = budget.end_date || currentMonthEnd
 
-          // Get expenses for this budget's category within the budget period
+
           const { data: budgetExpenses, error } = await supabase
             .from("expenses")
             .select("amount, description, expense_date")
@@ -185,7 +185,7 @@ export default function DashboardOverview() {
     }
   }
 
-  // Helper function to get budget status color and message
+
   const getBudgetStatus = (percentage: number) => {
     if (percentage <= 50) {
       return {

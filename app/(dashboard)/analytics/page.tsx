@@ -72,7 +72,7 @@ export default function AnalyticsPage() {
       const startDate = `${year}-${month}-01`
       const endDate = new Date(Number.parseInt(year), Number.parseInt(month), 0).toISOString().split("T")[0]
 
-      // Fetch expenses for the selected month with category details
+      // Fetch expenses for the selected month.
       const { data: expenses, error } = await supabase
         .from("expenses")
         .select(`
@@ -105,7 +105,7 @@ export default function AnalyticsPage() {
         return
       }
 
-      // Calculate category spending
+
       const categoryMap = new Map<
         string,
         {
@@ -150,7 +150,7 @@ export default function AnalyticsPage() {
         }
       })
 
-      // Convert to array and calculate percentages
+
       const categorySpendingData: CategorySpending[] = Array.from(categoryMap.values())
         .map((category) => ({
           ...category,
@@ -159,14 +159,13 @@ export default function AnalyticsPage() {
         }))
         .sort((a, b) => b.total - a.total)
 
-      // Find most frequent category
       const mostFrequentCategory = categorySpendingData.reduce(
         (max, category) =>
           category.transactionCount > max.count ? { name: category.name, count: category.transactionCount } : max,
         { name: "None", count: 0 },
       )
 
-      // Calculate averages
+      // Calculate averages (daily and monthly averages)
       const daysInMonth = new Date(Number.parseInt(year), Number.parseInt(month), 0).getDate()
       const averageDaily = totalSpending / daysInMonth
       const averageMonthly = totalSpending
@@ -206,7 +205,6 @@ export default function AnalyticsPage() {
       .replace("RF", "RWF")
   }
 
-  // Prepare chart data
   const chartData = categorySpending.map((category) => ({
     name: category.name,
     value: category.total,

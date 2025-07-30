@@ -1,7 +1,7 @@
 import { supabase } from "./supabase"
 
 export const signUp = async (email: string, password: string, fullName: string) => {
-  // 1️⃣ Create the user
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -12,9 +12,6 @@ export const signUp = async (email: string, password: string, fullName: string) 
 
   if (error) throw error
 
-  // 2️⃣ Ensure we have an authenticated session
-  // ‣ If email confirmation is OFF, Supabase returns a session immediately.
-  // ‣ If confirmation is ON, try to sign-in right away (will succeed in local dev).
   let session = data.session
   if (!session) {
     const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
@@ -24,12 +21,12 @@ export const signUp = async (email: string, password: string, fullName: string) 
     if (!signInError) session = signInData.session
   }
 
-  // 3️⃣ Create default categories **only** if we now have a session
+
   if (session?.user) {
     try {
       await createDefaultCategories()
     } catch (catErr) {
-      // Don’t block signup if categories fail; they’ll be created on first login
+
       console.warn("Skipping default category creation:", (catErr as Error).message)
     }
   }
@@ -93,6 +90,6 @@ const createDefaultCategories = async () => {
     })),
   )
 
-  // Ignore “duplicate key” errors so we don’t break if the user refreshes mid-process
+
   if (error && error.code !== "23505") throw error
 }

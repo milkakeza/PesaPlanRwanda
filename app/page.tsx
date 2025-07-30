@@ -30,7 +30,7 @@ export default function HomePage() {
 
     checkAuth()
 
-    // Listen for auth changes
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {

@@ -1,83 +1,90 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useToast } from "@/hooks/use-toast"
-import { signIn, signUp } from "@/lib/auth"
-import { Loader2 } from "lucide-react"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
+import { signIn, signUp } from "@/lib/auth";
+import { Loader2 } from "lucide-react";
 
 export function AuthForm() {
-  const [loading, setLoading] = useState(false)
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [fullName, setFullName] = useState("")
-  const { toast } = useToast()
-  const router = useRouter()
+  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const { toast } = useToast();
+  const router = useRouter();
 
   const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
+    e.preventDefault();
+    setLoading(true);
 
     try {
-      const { error } = await signIn(email, password)
-      if (error) throw error
+      const { error } = await signIn(email, password);
+      if (error) throw error;
 
       toast({
         title: "Success",
         description: "Signed in successfully!",
-      })
+      });
 
-      router.push("/dashboard")
+      router.push("/dashboard");
     } catch (error: any) {
       toast({
         title: "Error",
         description: error.message,
         variant: "destructive",
-      })
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
+    e.preventDefault();
+    setLoading(true);
 
     try {
-      const { error } = await signUp(email, password, fullName)
-      if (error) throw error
+      const { error } = await signUp(email, password, fullName);
+      if (error) throw error;
 
       toast({
         title: "Success",
         description: "Account created successfully! You can now sign in.",
-      })
+      });
 
-      // Reset form
-      setEmail("")
-      setPassword("")
-      setFullName("")
+      setEmail("");
+      setPassword("");
+      setFullName("");
     } catch (error: any) {
       toast({
         title: "Error",
         description: error.message,
         variant: "destructive",
-      })
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <Card className="w-full max-w-md mx-auto border-money-green/20 shadow-xl">
       <CardHeader className="bg-gradient-to-r from-money-green-light to-money-blue-light">
-        <CardTitle className="text-money-green-dark">Welcome to PesaPlan</CardTitle>
+        <CardTitle className="text-money-green-dark">
+          Welcome to PesaPlan
+        </CardTitle>
         <CardDescription className="text-money-blue-dark/70">
           Sign in to your account or create a new one
         </CardDescription>
@@ -85,10 +92,16 @@ export function AuthForm() {
       <CardContent className="pt-6">
         <Tabs defaultValue="signin" className="w-full">
           <TabsList className="grid w-full grid-cols-2 bg-money-green-light">
-            <TabsTrigger value="signin" className="data-[state=active]:bg-money-green data-[state=active]:text-white">
+            <TabsTrigger
+              value="signin"
+              className="data-[state=active]:bg-money-green data-[state=active]:text-white"
+            >
               Sign In
             </TabsTrigger>
-            <TabsTrigger value="signup" className="data-[state=active]:bg-money-green data-[state=active]:text-white">
+            <TabsTrigger
+              value="signup"
+              className="data-[state=active]:bg-money-green data-[state=active]:text-white"
+            >
               Sign Up
             </TabsTrigger>
           </TabsList>
@@ -110,7 +123,10 @@ export function AuthForm() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="signin-password" className="text-money-blue-dark">
+                <Label
+                  htmlFor="signin-password"
+                  className="text-money-blue-dark"
+                >
                   Password
                 </Label>
                 <Input
@@ -123,7 +139,11 @@ export function AuthForm() {
                   required
                 />
               </div>
-              <Button type="submit" className="w-full bg-money-green hover:bg-money-green-dark" disabled={loading}>
+              <Button
+                type="submit"
+                className="w-full bg-money-green hover:bg-money-green-dark"
+                disabled={loading}
+              >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Sign In
               </Button>
@@ -161,7 +181,10 @@ export function AuthForm() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="signup-password" className="text-money-blue-dark">
+                <Label
+                  htmlFor="signup-password"
+                  className="text-money-blue-dark"
+                >
                   Password
                 </Label>
                 <Input
@@ -174,7 +197,11 @@ export function AuthForm() {
                   required
                 />
               </div>
-              <Button type="submit" className="w-full bg-money-green hover:bg-money-green-dark" disabled={loading}>
+              <Button
+                type="submit"
+                className="w-full bg-money-green hover:bg-money-green-dark"
+                disabled={loading}
+              >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Sign Up
               </Button>
@@ -183,5 +210,5 @@ export function AuthForm() {
         </Tabs>
       </CardContent>
     </Card>
-  )
+  );
 }

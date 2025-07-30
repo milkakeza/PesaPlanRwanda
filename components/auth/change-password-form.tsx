@@ -71,7 +71,7 @@ export default function ChangePasswordForm() {
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              required // New password is now required
+              required
             />
           </div>
           <div className="grid gap-2">
@@ -81,7 +81,7 @@ export default function ChangePasswordForm() {
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              required // Confirm password is now required
+              required
             />
           </div>
           <Button type="submit" disabled={saving}>

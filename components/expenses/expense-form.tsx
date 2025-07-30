@@ -91,7 +91,7 @@ export default function ExpenseForm({ onSuccess }: ExpenseFormProps) {
 
       if (!budget) return
 
-      // Calculate total spent on this budget
+
       const { data: expenses } = await supabase
         .from("expenses")
         .select("amount")
@@ -103,7 +103,7 @@ export default function ExpenseForm({ onSuccess }: ExpenseFormProps) {
       const budgetAmount = Number(budget.amount)
       const percentageUsed = (totalSpent / budgetAmount) * 100
 
-      // Create notification if budget is exceeded or close to limit
+
       if (percentageUsed >= 100) {
         await supabase.from("notifications").insert({
           user_id: user.id,
@@ -146,7 +146,7 @@ export default function ExpenseForm({ onSuccess }: ExpenseFormProps) {
 
       if (error) throw error
 
-      // Check if this expense affects any budget and create notification if needed
+
       if (formData.budget_id) {
         await checkBudgetAlert(formData.budget_id, Number.parseFloat(formData.amount))
       }
@@ -156,7 +156,7 @@ export default function ExpenseForm({ onSuccess }: ExpenseFormProps) {
         description: "Your expense has been recorded.",
       })
 
-      // Reset form
+
       setFormData({
         amount: "",
         description: "",

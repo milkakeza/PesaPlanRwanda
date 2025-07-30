@@ -75,7 +75,7 @@ export default function ExpensesPage() {
 
   const handleExpenseAdded = () => {
     setOpen(false)
-    fetchExpenses() // Refresh the list
+    fetchExpenses()
   }
 
   const handleDeleteExpense = async (id: string) => {

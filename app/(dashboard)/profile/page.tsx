@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator"
 import { toast } from "@/hooks/use-toast"
 import { supabase } from "@/lib/supabase"
 import { Mail } from "lucide-react"
-import ChangePasswordForm from "@/components/auth/change-password-form" // Import the new component
+import ChangePasswordForm from "@/components/auth/change-password-form"
 
 interface UserProfile {
   id: string
@@ -180,7 +180,7 @@ export default function ProfilePage() {
                   value={formData.full_name}
                   onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                   placeholder="Enter your full name"
-                  required // Full name is now required
+                  required
                 />
               ) : (
                 <p className="text-sm py-2 px-3 bg-muted rounded-md">{profile.full_name || "Not set"}</p>
@@ -195,7 +195,7 @@ export default function ProfilePage() {
                   value={formData.username}
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                   placeholder="Enter your username"
-                  required // Username is now required
+                  required
                 />
               ) : (
                 <p className="text-sm py-2 px-3 bg-muted rounded-md">{profile.username || "Not set"}</p>
