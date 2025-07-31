@@ -4,6 +4,12 @@ PesaPlan is a lightweight personal finance management tool that helps users trac
 
 [Vercel Deploy](https://pesaplan.vercel.app)
 
+Email
+--------------------------------------------------------------------------
+# Credentials
+- You can log in using demo credentials:
+  - Email: milkakeza9@gmail.com
+  - Password: MimiKeke
 --------------------------------------------------------------------------
 
 ## Features
