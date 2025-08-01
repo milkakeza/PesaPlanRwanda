@@ -178,12 +178,12 @@ export default function ExpensesPage() {
                         variant="secondary"
                         className="text-xs"
                         style={{
-                          backgroundColor: `${expense.category.color}20`,
-                          color: expense.category.color,
+                          backgroundColor: `${expense.category?.color}20`,
+                          color: expense.category?.color,
                         }}
                       >
-                        <span className="mr-1">{expense.category.icon}</span>
-                        {expense.category.name}
+                        <span className="mr-1">{expense.category?.icon}</span>
+                        {expense.category?.name}
                       </Badge>
                     </TableCell>
                     <TableCell>
